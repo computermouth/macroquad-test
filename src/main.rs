@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use macroquad::prelude::*;
 
 fn conf() -> Conf {
@@ -76,7 +78,6 @@ impl Entity {
         let collided_pos = self.pos.clamp(vec3(0.5, 0.5, 0.5), vec3(9.5, 9.5, 9.5));
 
         if self.pos != collided_pos {
-
             let mut coll_dir = (self.pos - collided_pos).abs().ceil() * -1.0;
             if coll_dir.x != -1.0 {
                 coll_dir.x = 1.0;
@@ -105,11 +106,11 @@ impl Entity {
         }
 
         self.draw();
-        
+
         rc
     }
 
-    fn draw(&self){
+    fn draw(&self) {
         draw_cube(self.pos, vec3(1., 1., 1.), None, self.f_c);
         draw_cube_wires(self.pos, vec3(1., 1., 1.), self.l_c);
     }
@@ -196,14 +197,14 @@ async fn main() {
         //     switch = !switch;
         // }
 
-        clear_background(LIGHTGRAY);
+        clear_background(DARKGRAY);
 
         // Going 3d!
 
         set_camera(&Camera3D {
-            position: vec3(22., 15., 18.),
+            position: vec3(22., 20., 18.),
             up: vec3(0.0, 1.0, 0.0),
-            target: vec3(5.,0.,5.),
+            target: vec3(5., 5., 5.),
             ..Default::default()
         });
 
@@ -216,8 +217,33 @@ async fn main() {
 
         entities.append(&mut new_e);
 
-        draw_cube(vec3(5., -0.5, 5.), vec3(10., 1., 10.), None, WHITE);
-        draw_cube_wires(vec3(5., 5., 5.), vec3(10., 10., 10.), GRAY);
+        // right
+        draw_grid_ex(
+            10,
+            1.,
+            GRAY,
+            GRAY,
+            vec3(5., 5., 0.),
+            Quat::from_axis_angle(vec3(1., 0., 0.), PI / 2.),
+        );
+        // bottom
+        draw_grid_ex(
+            10,
+            1.,
+            GRAY,
+            GRAY,
+            vec3(5., 0., 5.),
+            Quat::from_axis_angle(vec3(0., 1., 0.), PI / 2.),
+        );
+        // back
+        draw_grid_ex(
+            10,
+            1.,
+            GRAY,
+            GRAY,
+            vec3(0., 5., 5.),
+            Quat::from_axis_angle(vec3(0., 0., 1.), PI / 2.),
+        );
 
         // Back to screen space, render some text
         set_default_camera();
@@ -238,7 +264,6 @@ async fn main() {
             30.0,
             BLACK,
         );
-
 
         next_frame().await
     }
