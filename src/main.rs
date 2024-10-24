@@ -115,67 +115,15 @@ async fn main() {
             draw_circle(closest.x, closest.y, 5., GRAY);
         }
 
-        let last_step = velocity;
-
         let step_count = 16;
         let step_len = vector2_scale(velocity, 1. / step_count as f32);
         for _ in 0..step_count {
-            // add a step to player pos
-            let mut local_step = step_len;
-            let mut local_last = player_pos;
-            let mut local_pos = vector2_add(player_pos, local_step);
-            let mut iter = 0;
-
-            'out: loop {
-                if iter == 5 {
-                    local_pos = local_last;
-                    break 'out;
-                } else if let Some((nearest, wall)) =
-                    find_nearest_collision(local_pos, player_radius, &walls)
-                {
-                    draw_line(wall.p1.x, wall.p1.y, wall.p2.x, wall.p2.y, 4., PINK);
-                    draw_circle(nearest.x, nearest.y, 5., RED);
-
-                    let collision_normal = vector2_normalize(vector2_subtract(local_pos, nearest));
-                    let closest_distance = vector2_distance(local_pos, nearest);
-
-                    // Move the circle to just touch the wall
-                    let penetration_depth = player_radius - closest_distance;
-                    local_pos = vector2_add(
-                        local_pos,
-                        vector2_scale(collision_normal, penetration_depth),
-                    );
-
-                    // Calculate new velocity to slide along the wall
-                    let mut projected_velocity = vector2_subtract(
-                        velocity,
-                        vector2_scale(
-                            collision_normal,
-                            vector2_dot_product(velocity, collision_normal),
-                        ),
-                    );
-
-                    if vector2_length(projected_velocity) < VCLOSE {
-                        projected_velocity = Vector2 { x: 0., y: 0. };
-                    }
-
-                    // Adjust `local_step` to account for the distance already traveled
-                    let remaining_distance = vector2_length(step_len) - closest_distance;
-                    local_step =
-                        vector2_scale(vector2_normalize(projected_velocity), remaining_distance);
-                    local_last = local_pos;
-                    iter += 1;
-                } else {
-                    local_pos = local_last;
-                    break 'out;
-                }
-            }
-
-            player_pos = local_pos;
+            let next_pos = vector2_add(player_pos, step_len);
+            player_pos =
+                recursive_collision(next_pos, step_len, velocity, player_radius, &walls, 0);
         }
 
-        // draw player
-        player_pos = vector2_add(player_pos, velocity);
+        // player_pos = vector2_add(player_pos, velocity);
         draw_circle(player_pos.x, player_pos.y, player_radius, BLUE);
         // draw player look dir
         let line_end = vector2_add(
@@ -239,18 +187,6 @@ async fn main() {
             ORANGE,
         );
 
-        draw_text(
-            format!(
-                "SLD: {{ x: {:04.1}  y: {:04.1} }}",
-                last_step.x, last_step.y
-            )
-            .as_str(),
-            10.0,
-            500. + 30.0 * 6.,
-            30.0,
-            SKYBLUE,
-        );
-
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
@@ -305,29 +241,56 @@ fn find_nearest_collision(
     nearest
 }
 
-// fn collide_and_slide(circle_pos: Vector2, circle_radius: f32, velocity: Vector2, walls: Vec<Wall>) -> (Vector2, Vector2) {
+fn recursive_collision(
+    pos: Vector2,
+    step: Vector2,
+    velocity: Vector2,
+    player_radius: f32,
+    walls: &Vec<Wall>,
+    iter: usize,
+) -> Vector2 {
+    if iter >= 5 {
+        return pos;
+    }
 
-// }
+    if let Some((nearest, wall)) = find_nearest_collision(pos, player_radius, walls) {
+        draw_line(wall.p1.x, wall.p1.y, wall.p2.x, wall.p2.y, 4., PINK);
+        draw_circle(nearest.x, nearest.y, 5., RED);
 
-// function detect_and_slide(circle_pos, circle_radius, velocity, wall_segments):
+        let collision_normal = vector2_normalize(vector2_subtract(pos, nearest));
+        let closest_distance = vector2_distance(pos, nearest);
 
-//     // Step 2: Handle the closest collision if there is one
-//     if closest_collision is not null:
-//         collision_normal = closest_collision.normal
-//         collision_point = closest_collision.point
+        // Move the circle to just touch the wall
+        let penetration_depth = player_radius - closest_distance;
+        let new_pos = vector2_add(pos, vector2_scale(collision_normal, penetration_depth));
 
-//         // Move the circle to just touch the wall
-//         penetration_depth = circle_radius - closest_distance
-//         circle_pos = circle_pos + (collision_normal * penetration_depth)
+        // Calculate new velocity to slide along the wall
+        let mut projected_velocity = vector2_subtract(
+            velocity,
+            vector2_scale(
+                collision_normal,
+                vector2_dot_product(velocity, collision_normal),
+            ),
+        );
 
-//         // Calculate new velocity to slide along the wall
-//         projected_velocity = velocity - dot(velocity, collision_normal) * collision_normal
+        if vector2_length(projected_velocity) < VCLOSE {
+            projected_velocity = Vector2 { x: 0., y: 0. };
+        }
 
-//         // If the projected_velocity still points into the wall, zero it out
-//         if dot(projected_velocity, collision_normal) > 0:
-//             projected_velocity = Vector2(0, 0)
+        // Adjust `local_step` to account for the distance already traveled
+        let remaining_distance = vector2_length(step) - closest_distance;
+        let new_step = vector2_scale(vector2_normalize(projected_velocity), remaining_distance);
 
-//         return circle_pos, projected_velocity
-
-//     // No collision detected, proceed as normal
-//     return circle_pos + velocity, velocity
+        // Recursive call with updated values
+        return recursive_collision(
+            new_pos,
+            new_step,
+            projected_velocity,
+            player_radius,
+            walls,
+            iter + 1,
+        );
+    } else {
+        pos
+    }
+}
